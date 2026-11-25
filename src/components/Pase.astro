@@ -1,0 +1,320 @@
+---
+// src/components/Pase.astro
+// Tarjeta del pase: "Con mucho cariño para", el nombre del invitado en
+// Great Vibes vino, el separador dorado, "Hemos reservado", el número en
+// un círculo vino con aro dorado, "pases en su honor" y un muñequito por
+// lugar. Fondo crema con doble filete dorado y la flor colgante (la misma
+// de Versiculo y NombresPadres) pisando dos esquinas.
+//
+// Por ahora solo el diseño: el nombre y los pases llegan por props. Más
+// adelante se enlaza con el sistema de invitados.
+import { textoPases } from "../scripts/textoPase";
+
+export interface Props {
+    nombre?: string;
+    pases?: number;
+}
+
+// ── DATOS EDITABLES ───────────────────────────────────────────
+const intro = "Con mucho cariño para";
+const reservado = "Hemos reservado";
+// Mientras no esté enlazado al sistema
+const nombrePorDefecto = "Nombre del Invitado";
+// ──────────────────────────────────────────────────────────────
+
+const { nombre = nombrePorDefecto, pases = 0 } = Astro.props;
+// Hasta 10 muñequitos: con más no entran en el renglón
+const muñecos = Math.min(pases, 10);
+---
+
+<section id="pase" class="seccion">
+    <div id="tarjeta-pase" class="tarjeta">
+        <!-- Doble filete dorado -->
+        <span class="marco" aria-hidden="true"></span>
+
+        <p class="intro">{intro}</p>
+        <p class="nombre font-great-vibes">{nombre}</p>
+
+        <div class="separador" aria-hidden="true">
+            <span class="sep-linea"></span>
+            <span class="sep-rombo"></span>
+            <span class="sep-linea"></span>
+        </div>
+
+        <p class="reservado">{reservado}</p>
+
+        <div class="circulo">
+            <span class="numero">{pases}</span>
+        </div>
+
+        <p class="honor">{textoPases(pases)}</p>
+
+        <ul class="personas" aria-hidden="true">
+            {
+                Array.from({ length: muñecos }, () => (
+                    <li class="persona">
+                        <svg viewBox="0 0 24 24">
+                            <circle cx="12" cy="8" r="4" />
+                            <path d="M4.5 20.5c0-4.1 3.4-7 7.5-7s7.5 2.9 7.5 7z" />
+                        </svg>
+                    </li>
+                ))
+            }
+        </ul>
+
+        <!-- La misma flor en dos esquinas -->
+        <img
+            src="/imagenes/florabajo.png"
+            alt=""
+            width="828"
+            height="1476"
+            aria-hidden="true"
+            class="flor flor-arriba"
+        />
+        <img
+            src="/imagenes/florabajo.png"
+            alt=""
+            width="828"
+            height="1476"
+            aria-hidden="true"
+            class="flor flor-abajo"
+        />
+    </div>
+</section>
+
+<style>
+    .seccion {
+        position: relative;
+        width: 100%;
+        padding: 12% 0 14%;
+    }
+
+    /* Las letras se miden contra la tarjeta, no contra la pantalla */
+    .tarjeta {
+        container-type: inline-size;
+        position: relative;
+        width: 80%;
+        margin: 0 auto;
+        padding: 12cqw 8cqw 11cqw;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        /* Como imagen y no como color: el modo oscuro forzado la respeta */
+        background-image: linear-gradient(180deg, #fdfaf3 0%, #f8f2e6 100%);
+        border: 1px solid #c9a24e;
+        box-shadow: 0 10px 26px rgba(70, 20, 30, 0.12);
+    }
+
+    /* El segundo filete, adentro */
+    .marco {
+        position: absolute;
+        inset: 2.6cqw;
+        border: 1px solid #c9a24e;
+        pointer-events: none;
+    }
+
+    .intro {
+        position: relative;
+        margin: 0;
+        font-family: "Cinzel", serif;
+        font-size: 5.4cqw;
+        line-height: 1.3;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #a88a4e;
+    }
+
+    /* El nombre baja de renglón si es largo: nunca se achica para entrar */
+    .nombre {
+        position: relative;
+        margin: 3cqw 0 0;
+        font-size: 13cqw;
+        line-height: 1.15;
+        color: #7a2335;
+        text-wrap: balance;
+    }
+
+    .separador {
+        display: flex;
+        align-items: center;
+        gap: 2.4cqw;
+        margin: 5cqw 0 0;
+    }
+
+    .sep-linea {
+        display: block;
+        width: 18cqw;
+        height: 1px;
+        background-image: linear-gradient(#c9a24e, #c9a24e);
+    }
+
+    .sep-rombo {
+        display: block;
+        width: 1.8cqw;
+        height: 1.8cqw;
+        border: 1px solid #c9a24e;
+        transform: rotate(45deg);
+    }
+
+    .reservado {
+        margin: 6cqw 0 0;
+        font-family: "Cinzel", serif;
+        font-size: 6.2cqw;
+        letter-spacing: 0.04em;
+        color: #6e5a52;
+    }
+
+    /* El número: círculo vino con aro dorado separado por una franja crema */
+    .circulo {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 27cqw;
+        height: 27cqw;
+        margin-top: 4cqw;
+        border-radius: 50%;
+        background-image:
+            radial-gradient(
+                circle at 50% 30%,
+                rgba(255, 255, 255, 0.14) 0%,
+                rgba(255, 255, 255, 0) 60%
+            ),
+            linear-gradient(180deg, #7a2335 0%, #6f1f30 100%);
+        box-shadow:
+            0 0 0 1.4cqw #fbf7ef,
+            0 0 0 calc(1.4cqw + 1.5px) #c9a24e,
+            0 8px 18px rgba(70, 20, 30, 0.25);
+    }
+
+    .numero {
+        font-family: "Cinzel", serif;
+        font-weight: 700;
+        font-size: 15cqw;
+        line-height: 1;
+        color: #f7f2e6;
+    }
+
+    .honor {
+        margin: 6cqw 0 0;
+        font-family: "Cormorant Garamond", serif;
+        font-style: italic;
+        font-size: 7.4cqw;
+        line-height: 1.2;
+        color: #a07c3c;
+    }
+
+    .personas {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 2.6cqw;
+        margin: 5cqw 0 0;
+        padding: 0;
+        list-style: none;
+    }
+
+    .persona {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 10.5cqw;
+        height: 10.5cqw;
+        border: 1px solid #c9a24e;
+        border-radius: 50%;
+    }
+
+    .persona svg {
+        width: 5.4cqw;
+        height: 5.4cqw;
+        fill: #7a2335;
+    }
+
+    .flor {
+        position: absolute;
+        z-index: 2;
+        width: 16cqw;
+        height: auto;
+        pointer-events: none;
+        user-select: none;
+        filter: drop-shadow(0 3px 5px rgba(0, 0, 0, 0.2));
+    }
+
+    /* Cuelga desde la esquina de arriba a la izquierda */
+    .flor-arriba {
+        top: -9cqw;
+        left: -6cqw;
+    }
+
+    /* Cuelga desde la esquina de abajo a la derecha, pisando el borde */
+    .flor-abajo {
+        right: -6cqw;
+        bottom: -17cqw;
+    }
+</style>
+
+<script>
+    import { gsap } from "gsap";
+    import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+    gsap.registerPlugin(ScrollTrigger);
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const tarjeta = document.getElementById("tarjeta-pase");
+        if (!tarjeta) return;
+
+        if (window.matchMedia("(prefers-reduced-motion: reduce)").matches)
+            return;
+
+        const q = (s: string) => tarjeta.querySelector(s);
+
+        gsap.timeline({
+            scrollTrigger: {
+                trigger: tarjeta,
+                start: "top 85%",
+                toggleActions: "play none none reset",
+            },
+        })
+            .fromTo(
+                tarjeta,
+                { opacity: 0, y: 24 },
+                { opacity: 1, y: 0, duration: 1, ease: "power2.out" },
+            )
+            .fromTo(
+                [q(".intro"), q(".nombre"), q(".separador"), q(".reservado")],
+                { opacity: 0, y: 12 },
+                {
+                    opacity: 1,
+                    y: 0,
+                    duration: 0.8,
+                    stagger: 0.15,
+                    ease: "power2.out",
+                },
+                0.3,
+            )
+            .fromTo(
+                q(".circulo"),
+                { opacity: 0, scale: 0.6 },
+                { opacity: 1, scale: 1, duration: 0.8, ease: "back.out(2)" },
+                0.9,
+            )
+            .fromTo(
+                [q(".honor"), ...tarjeta.querySelectorAll(".persona")],
+                { opacity: 0, y: 8 },
+                {
+                    opacity: 1,
+                    y: 0,
+                    duration: 0.5,
+                    stagger: 0.1,
+                    ease: "power2.out",
+                },
+                1.3,
+            )
+            .fromTo(
+                tarjeta.querySelectorAll(".flor"),
+                { opacity: 0, scale: 0.85, transformOrigin: "50% 0%" },
+                { opacity: 1, scale: 1, duration: 1, ease: "power2.out" },
+                0.4,
+            );
+    });
+</script>
