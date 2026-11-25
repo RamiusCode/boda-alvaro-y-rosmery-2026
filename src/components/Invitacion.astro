@@ -18,6 +18,7 @@ import SugerenciaRegalo from "./SugerenciaRegalo.astro";
 import Restriccion from "./Restriccion.astro";
 import Despedida from "./Despedida.astro";
 import Pase from "./Pase.astro";
+import Dedicatoria from "./Dedicatoria.astro";
 import BotonMusica from "./BotonMusica.astro";
 import Contador from "./Contador.astro";
 import Calendario from "./Calendario.astro";
@@ -40,6 +41,7 @@ const { pases = 0 } = Astro.props;
 <!-- CONTENIDO DE LA INVITACIÓN -->
 <div id="contenido-principal">
     <NombresFlores />
+    <Dedicatoria />
     {/* PENDIENTE: la tarjeta del pase se ve siempre mientras se arma el diseño;
         en el link sin pase (/) muestra 2 de muestra. Al enlazar con el sistema
         volver a mostrarla solo con pases > 0. */}
