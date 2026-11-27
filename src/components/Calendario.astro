@@ -146,14 +146,21 @@ while (celdas.length % 7 !== 0) celdas.push(null);
     }
 
     /* El día de la boda, adentro de un corazón de línea */
+    /*
+       Centrado con calc y no con transform: la animación de entrada le
+       escribe su propio transform al corazón, y en Safari (iPhone) eso
+       borraba el translate y el corazón caía debajo del número. Así el
+       centrado no depende del transform y queda igual en todo celular.
+       El 6.5cqw es la mitad del ancho; arriba un poco más (6.75cqw) para
+       que la punta del corazón no quede pegada al número.
+    */
     .dia-boda svg {
         position: absolute;
-        left: 50%;
-        top: 50%;
-        /* Más chico que con un solo día: tres corazones van pegados */
-        width: 11cqw;
-        height: 11cqw;
-        transform: translate(-50%, -52%);
+        left: calc(50% - 6.5cqw);
+        top: calc(50% - 6.75cqw);
+        width: 13cqw;
+        height: 13cqw;
+        transform-origin: 50% 50%;
         overflow: visible;
     }
 
@@ -237,10 +244,11 @@ while (celdas.length % 7 !== 0) celdas.push(null);
             )
             .fromTo(
                 corazon,
-                { opacity: 0, scale: 0.4 },
+                { opacity: 0, scale: 0.4, transformOrigin: "50% 50%" },
                 {
                     opacity: 1,
                     scale: 1,
+                    transformOrigin: "50% 50%",
                     duration: 0.8,
                     stagger: 0.15,
                     ease: "back.out(2)",

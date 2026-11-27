@@ -8,12 +8,13 @@
 const titulo = "Código de Vestimenta";
 const etiqueta = "Formal";
 const aviso =
-    "No usar blanco, reservado para la novia, ni verde pistacho ni verde olivo.";
+    "No usar blanco, reservado para la novia, ni verde pistacho, verde olivo ni turquesa.";
 // Los colores que no se usan. Lista vacía, no se dibujan los círculos
 const colores = [
     { nombre: "Blanco", color: "#ffffff" },
     { nombre: "Verde pistacho", color: "#93c572" },
     { nombre: "Verde olivo", color: "#708238" },
+    { nombre: "Turquesa", color: "#5ec4b8" },
 ];
 // ──────────────────────────────────────────────────────────────
 ---
@@ -94,7 +95,7 @@ const colores = [
     .colores {
         display: flex;
         justify-content: center;
-        gap: 5cqw;
+        gap: 3cqw;
         margin: 5cqw 0 0;
         padding: 0;
         list-style: none;
@@ -104,7 +105,7 @@ const colores = [
         display: flex;
         flex-direction: column;
         align-items: center;
-        width: 22cqw;
+        width: 19cqw;
     }
 
     /* El color va como imagen y no como fondo: el modo oscuro forzado
