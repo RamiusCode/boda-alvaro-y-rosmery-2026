@@ -2,7 +2,8 @@
 // src/components/Despedida.astro
 // Cierre de la invitación: "Confirmar Asistencia" arriba, el mismo sobre
 // de la portada con la tarjeta bordó por delante (el pedido, "¡Te
-// esperamos!" y el botón que abre WhatsApp) y, al pie, los nombres.
+// esperamos!" y el botón que abre el modal de confirmación) y, al pie,
+// los nombres.
 //
 // El sello de lacre es parte de la imagen del sobre; para que quede POR
 // ENCIMA de la tarjeta se repite la misma imagen recortada al sello,
@@ -15,10 +16,11 @@
 */
 export interface Props {
     pases?: number;
+    nombre?: string;
 }
-const { pases = 0 } = Astro.props;
+const { pases = 0, nombre } = Astro.props;
 
-import { enlaceConfirmar } from "../scripts/mensajeConfirmar";
+import { palabraPases, textoPaseParaPersonas } from "../scripts/textoPase";
 
 // ── DATOS EDITABLES ───────────────────────────────────────────
 const titulo = "Confirmar Asistencia";
@@ -30,44 +32,39 @@ const novios = "Alvaro & Rosmery";
 const sobre = "/imagenes/sobre.png";
 
 /*
-   El botón abre WhatsApp con el mensaje ya escrito, y el nombre que el
-   invitado ponga en la casilla va adentro. El texto se arma en
-   src/scripts/mensajeConfirmar.ts. El número va con el código de país y
-   sin el + ni espacios, que es como lo pide wa.me.
+   El botón abre el modal de confirmación, conectado al sistema de
+   invitados: el nombre y los pases llegan de la base con el link
+   ?i=codigo, y la respuesta se guarda en la fila de ese invitado (los
+   novios la ven en el panel). Sin un invitado en el link no hay a nombre
+   de quién guardar, así que el botón no se muestra.
 */
-const noviosMensaje = "Alvaro y Rosmery";
-const fecha = "23 de diciembre de 2026";
-// Un botón por número: el invitado elige a quién le confirma
-const contactos = [
-    // Bolivia (591) + 76871305
-    { texto: "Confirmar con la novia", telefono: "59176871305" },
-];
-const placeholderNombre = "Escribe tu nombre";
-
-/*
-   El pase se arma solo con el número que llega por props: 1 da "Pase para
-   una persona" y 2 "Pase para dos personas". Si el número pasa la lista,
-   cae al dígito ("Pase para 12 personas"). En 0 queda en null.
-*/
-const enLetras = [
-    "", // el 0 no se usa: está para que el 1 caiga en "una"
-    "una",
-    "dos",
-    "tres",
-    "cuatro",
-    "cinco",
-    "seis",
-    "siete",
-    "ocho",
-    "nueve",
-    "diez",
-];
-const cantidad = enLetras[pases] ?? String(pases);
-const pase =
-    pases > 0
-        ? `Pase para ${cantidad} ${pases === 1 ? "persona" : "personas"}`
-        : null;
+const textoBoton = "Confirmar asistencia";
+const modal = {
+    rotulo: "Confirmación de asistencia",
+    pregunta: "Selecciona cuántos asistirán",
+    nombresTitulo: "¿Quiénes asistirán?",
+    placeholder: "Nombre del asistente",
+    confirmar: "Confirmar asistencia",
+    noAsistire: "No podré asistir",
+    gracias: "¡Gracias por confirmar!",
+    graciasTexto: "Te esperamos para celebrar juntos.",
+    lamentamos: "¡Te extrañaremos!",
+    lamentamosTexto: "Gracias por avisarnos.",
+    // Lo que ve al volver a abrir el modal quien ya avisó que no viene
+    // (el de quien ya confirmó depende del número: textoYaConfirmado)
+    yaNoAsiste: "Ya nos avisaste que no podrás acompañarnos. Gracias por avisarnos.",
+};
 // ──────────────────────────────────────────────────────────────
+
+// El nombre y los pases los pone el script con lo que diga la base. Se
+// dibuja al menos un círculo y una casilla: el script los usa de molde
+// para armar tantos como pases tenga el invitado.
+const nombreInvitado = nombre ?? "";
+const pasesModal = Math.max(pases, 1);
+
+// "Pase para dos personas": la frase sale de textoPase.ts, la misma
+// función que usa el script cuando llegan los pases de la base.
+const pase = textoPaseParaPersonas(pases);
 ---
 
 <section id="despedida" class="seccion">
@@ -91,39 +88,11 @@ const pase =
         <div class="tarjeta">
             <p class="t-frase">{frase}</p>
             <p class="t-esperamos font-great-vibes">{esperamos}</p>
-            {pase && <p class="t-pase">{pase}</p>}
-            <label class="t-nombre">
-                <span class="t-nombre-check" aria-hidden="true">✓</span>
-                <input
-                    id="confirmar-nombre"
-                    type="text"
-                    name="nombre"
-                    autocomplete="name"
-                    placeholder={placeholderNombre}
-                    aria-label="Tu nombre"
-                />
-            </label>
+            <p class="t-pase" id="despedida-pase" hidden={!pase}>{pase}</p>
             <div class="botones">
-                {
-                    contactos.map((c) => {
-                        const datos = {
-                            telefono: c.telefono,
-                            novios: noviosMensaje,
-                            fecha,
-                        };
-                        return (
-                            <a
-                                class="boton"
-                                href={enlaceConfirmar(datos)}
-                                data-confirmar={JSON.stringify(datos)}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                {c.texto}
-                            </a>
-                        );
-                    })
-                }
+                <button type="button" class="boton" id="abrir-confirmar">
+                    {textoBoton}
+                </button>
             </div>
 
             <!-- Flor colgando en la esquina de abajo a la derecha -->
@@ -149,6 +118,91 @@ const pase =
     </div>
 
     <p class="novios font-great-vibes">{novios}</p>
+
+    <!-- Modal de confirmación: se abre con el botón de la tarjeta -->
+    <dialog
+        id="modal-confirmar"
+        class="modal"
+        aria-labelledby="modal-nombre"
+        data-ya-no-asiste={modal.yaNoAsiste}
+    >
+        <div class="m-caja">
+            <span class="m-marco" aria-hidden="true"></span>
+            <button type="button" class="m-cerrar" aria-label="Cerrar">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+            </button>
+
+            <!-- Paso 1: elegir cuántos y quiénes -->
+            <div class="m-paso" data-paso="elegir">
+                <p class="m-rotulo">{modal.rotulo}</p>
+                <p class="m-nombre font-great-vibes" id="modal-nombre">
+                    {nombreInvitado}
+                </p>
+                <div class="m-sep" aria-hidden="true">
+                    <span></span><i></i><span></span>
+                </div>
+                <p class="m-reservados">
+                    Tienes <b id="modal-pases">{pasesModal}</b>
+                    <span id="modal-palabra-pases">{palabraPases(pasesModal)}</span>.
+                </p>
+
+                <p class="m-pregunta" id="modal-pregunta">{modal.pregunta}</p>
+                <div
+                    class="m-cantidades"
+                    role="radiogroup"
+                    aria-labelledby="modal-pregunta"
+                >
+                    {
+                        Array.from({ length: pasesModal }, (_, i) => (
+                            <button
+                                type="button"
+                                class="m-cant"
+                                role="radio"
+                                aria-checked="false"
+                                data-cantidad={i + 1}
+                            >
+                                {i + 1}
+                            </button>
+                        ))
+                    }
+                </div>
+
+                <!-- Una casilla por persona: se ven tantas como elija -->
+                <div class="m-nombres" hidden data-placeholder={modal.placeholder}>
+                    <p class="m-nombres-titulo">{modal.nombresTitulo}</p>
+                    {
+                        Array.from({ length: pasesModal }, (_, i) => (
+                            <input
+                                class="m-input"
+                                type="text"
+                                autocomplete="off"
+                                placeholder={`${modal.placeholder} ${i + 1}`}
+                                aria-label={`${modal.placeholder} ${i + 1}`}
+                                hidden
+                            />
+                        ))
+                    }
+                </div>
+
+                <button type="button" class="m-confirmar" disabled>
+                    {modal.confirmar}
+                </button>
+                <button type="button" class="m-no">{modal.noAsistire}</button>
+            </div>
+
+            <!-- Paso 2: gracias (o lo sentimos) -->
+            <div class="m-paso m-final" data-paso="gracias" hidden>
+                <p class="m-final-titulo font-great-vibes">{modal.gracias}</p>
+                <p class="m-final-texto">{modal.graciasTexto}</p>
+            </div>
+            <div class="m-paso m-final" data-paso="no" hidden>
+                <p class="m-final-titulo font-great-vibes">{modal.lamentamos}</p>
+                <p class="m-final-texto">{modal.lamentamosTexto}</p>
+            </div>
+        </div>
+    </dialog>
 </section>
 
 <style>
@@ -265,55 +319,6 @@ const pase =
         color: #efe8d6;
     }
 
-    /* Casilla del nombre: una línea crema sobre el bordó, con el ✓ */
-    .t-nombre {
-        display: flex;
-        align-items: center;
-        gap: 2cqw;
-        width: 78%;
-        margin-top: 5cqw;
-        padding: 0 1cqw 1.4cqw;
-        border-bottom: 1px solid rgba(239, 232, 214, 0.6);
-    }
-
-    .t-nombre-check {
-        flex: none;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        width: 5.4cqw;
-        height: 5.4cqw;
-        border-radius: 50%;
-        font-size: 3.4cqw;
-        line-height: 1;
-        color: #7a2335;
-        background-image: linear-gradient(#efe8d6, #efe8d6);
-    }
-
-    .t-nombre input {
-        flex: 1;
-        min-width: 0;
-        padding: 0;
-        border: 0;
-        outline: none;
-        background: transparent;
-        font-family: "Cormorant Garamond", serif;
-        font-style: italic;
-        /* 16px como mínimo: con menos, el iPhone hace zoom al escribir */
-        font-size: max(16px, 4.8cqw);
-        color: #f4efe3;
-        text-align: center;
-    }
-
-    .t-nombre input::placeholder {
-        color: rgba(244, 239, 227, 0.6);
-    }
-
-    /* Aviso suave si tocan Confirmar sin nombre */
-    .t-nombre.falta {
-        border-bottom-color: #f2d58a;
-    }
-
     .botones {
         display: flex;
         flex-direction: column;
@@ -338,6 +343,8 @@ const pase =
         white-space: nowrap;
         text-align: center;
         text-decoration: none;
+        border: 0;
+        cursor: pointer;
         color: #6f1f30;
         background-image: linear-gradient(
             180deg,
@@ -376,56 +383,599 @@ const pase =
         font-size: 15cqw;
         line-height: 1.1;
     }
+    /* ── Modal de confirmación ─────────────────────────────────── */
+    .modal {
+        width: min(92vw, 420px);
+        max-height: 92svh;
+        margin: auto;
+        padding: 0;
+        border: 0;
+        overflow: visible;
+        background: transparent;
+    }
+
+    .modal::backdrop {
+        background: rgba(45, 12, 22, 0.55);
+        backdrop-filter: blur(3px);
+    }
+
+    /* Las medidas van contra el ancho de la caja */
+    .m-caja {
+        container-type: inline-size;
+        position: relative;
+        max-height: 92svh;
+        overflow-y: auto;
+        box-sizing: border-box;
+        padding: 11cqw 8cqw 9cqw;
+        text-align: center;
+        /* Como imagen y no como color: el modo oscuro forzado la respeta */
+        background-image: linear-gradient(180deg, #fdfaf3 0%, #f6efe1 100%);
+        border: 1px solid #c9a24e;
+        box-shadow: 0 18px 44px rgba(40, 8, 15, 0.35);
+    }
+
+    /* Segundo filete dorado, adentro */
+    .m-marco {
+        position: absolute;
+        inset: 2.4cqw;
+        border: 1px solid rgba(201, 162, 78, 0.6);
+        pointer-events: none;
+    }
+
+    .m-cerrar {
+        position: absolute;
+        z-index: 1;
+        top: 4cqw;
+        right: 4cqw;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 9cqw;
+        height: 9cqw;
+        padding: 0;
+        border: 1px solid #c9a24e;
+        border-radius: 50%;
+        background-image: linear-gradient(#fdfaf3, #fdfaf3);
+        cursor: pointer;
+    }
+
+    .m-cerrar svg {
+        width: 4.4cqw;
+        height: 4.4cqw;
+        fill: none;
+        stroke: #7a2335;
+        stroke-width: 1.6;
+        stroke-linecap: round;
+    }
+
+    .m-paso {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .m-paso[hidden] {
+        display: none;
+    }
+
+    .m-rotulo {
+        margin: 0;
+        font-family: "Cinzel", serif;
+        font-size: 3.8cqw;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: #b08d46;
+    }
+
+    /* El nombre baja de renglón si es largo: nunca se achica para entrar */
+    .m-nombre {
+        margin: 4cqw 0 0;
+        font-size: 11cqw;
+        line-height: 1.15;
+        color: #7a2335;
+        text-wrap: balance;
+    }
+
+    .m-sep {
+        display: flex;
+        align-items: center;
+        gap: 2cqw;
+        margin-top: 4cqw;
+    }
+
+    .m-sep span {
+        display: block;
+        width: 22cqw;
+        height: 1px;
+        background-image: linear-gradient(#c9a24e, #c9a24e);
+    }
+
+    .m-sep i {
+        display: block;
+        width: 1.6cqw;
+        height: 1.6cqw;
+        border: 1px solid #c9a24e;
+        transform: rotate(45deg);
+    }
+
+    .m-reservados {
+        margin: 5cqw 0 0;
+        font-family: "Cormorant Garamond", serif;
+        font-size: 6.4cqw;
+        line-height: 1.3;
+        color: #5a4a44;
+    }
+
+    .m-reservados b {
+        font-weight: 700;
+        color: #7a2335;
+    }
+
+    .m-pregunta {
+        margin: 6cqw 0 0;
+        font-family: "Cinzel", serif;
+        font-weight: 600;
+        font-size: 4cqw;
+        letter-spacing: 0.04em;
+        color: #6e5a52;
+    }
+
+    .m-cantidades {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 3.4cqw;
+        margin-top: 4cqw;
+    }
+
+    .m-cant {
+        width: 13cqw;
+        height: 13cqw;
+        padding: 0;
+        border: 1px solid #c9a24e;
+        border-radius: 50%;
+        font-family: "Cinzel", serif;
+        font-weight: 700;
+        font-size: 5.4cqw;
+        line-height: 1;
+        color: #7a2335;
+        background-image: linear-gradient(#fdfaf3, #fdfaf3);
+        cursor: pointer;
+        transition: transform 0.2s ease;
+    }
+
+    .m-cant:active {
+        transform: scale(0.94);
+    }
+
+    /* El elegido: círculo vino con aro dorado */
+    .m-cant[aria-checked="true"] {
+        color: #f7f2e6;
+        border-color: #7a2335;
+        background-image: linear-gradient(180deg, #7a2335 0%, #6f1f30 100%);
+        box-shadow:
+            0 0 0 1cqw #fdfaf3,
+            0 0 0 calc(1cqw + 1px) #c9a24e,
+            0 4px 10px rgba(70, 20, 30, 0.25);
+    }
+
+    .m-nombres {
+        width: 100%;
+        margin-top: 6cqw;
+    }
+
+    .m-nombres[hidden] {
+        display: none;
+    }
+
+    .m-nombres-titulo {
+        margin: 0 0 1cqw;
+        font-family: "Cinzel", serif;
+        font-weight: 600;
+        font-size: 4cqw;
+        letter-spacing: 0.04em;
+        color: #6e5a52;
+    }
+
+    .m-input {
+        display: block;
+        width: 100%;
+        box-sizing: border-box;
+        margin-top: 3cqw;
+        padding: 2cqw 1cqw;
+        border: 0;
+        border-bottom: 1px solid #c9a24e;
+        border-radius: 0;
+        outline: none;
+        background: transparent;
+        font-family: "Cormorant Garamond", serif;
+        /* 16px como mínimo: con menos, el iPhone hace zoom al escribir */
+        font-size: max(16px, 5.4cqw);
+        color: #5a4a44;
+        text-align: center;
+    }
+
+    .m-input[hidden] {
+        display: none;
+    }
+
+    .m-input::placeholder {
+        color: rgba(110, 90, 82, 0.55);
+        font-style: italic;
+    }
+
+    .m-input:focus {
+        border-bottom-color: #7a2335;
+    }
+
+    /* Aviso suave si tocan Confirmar con una casilla vacía */
+    .m-input.falta {
+        border-bottom: 2px solid #b8475c;
+    }
+
+    .m-confirmar {
+        width: 100%;
+        margin-top: 7cqw;
+        padding: 4cqw;
+        border: 0;
+        border-radius: 999px;
+        font-family: "Cinzel", serif;
+        font-weight: 700;
+        font-size: 4.4cqw;
+        letter-spacing: 0.06em;
+        color: #f7f2e6;
+        background-image: linear-gradient(180deg, #7a2335 0%, #6f1f30 100%);
+        box-shadow:
+            inset 0 0 0 1px rgba(243, 227, 189, 0.45),
+            0 6px 16px rgba(70, 20, 30, 0.3);
+        cursor: pointer;
+        transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+
+    .m-confirmar:active {
+        transform: scale(0.98);
+    }
+
+    /* Hasta que elija cuántos van */
+    .m-confirmar:disabled {
+        opacity: 0.45;
+        cursor: default;
+    }
+
+    .m-no {
+        margin-top: 5cqw;
+        padding: 0 0 0.6cqw;
+        border: 0;
+        border-bottom: 1px solid #6e5a52;
+        background: transparent;
+        font-family: "Cinzel", serif;
+        font-size: 3.8cqw;
+        letter-spacing: 0.04em;
+        color: #6e5a52;
+        cursor: pointer;
+    }
+
+    .m-final {
+        padding: 6cqw 0 2cqw;
+    }
+
+    .m-final-titulo {
+        margin: 0;
+        font-size: 11cqw;
+        line-height: 1.2;
+        color: #7a2335;
+    }
+
+    .m-final-texto {
+        margin: 3cqw 0 0;
+        font-family: "Cormorant Garamond", serif;
+        font-style: italic;
+        font-size: 6cqw;
+        color: #5a4a44;
+    }
 </style>
 
 <script>
     import { gsap } from "gsap";
     import { ScrollTrigger } from "gsap/ScrollTrigger";
     import {
-        enlaceConfirmar,
-        type DatosConfirmar,
-    } from "../scripts/mensajeConfirmar";
+        datosInvitado,
+        confirmarAsistencia,
+        alCambiarInvitado,
+        type Invitado,
+    } from "../lib/invitado";
+    import {
+        palabraPases,
+        textoPaseParaPersonas,
+        textoYaConfirmado,
+    } from "../scripts/textoPase";
 
     gsap.registerPlugin(ScrollTrigger);
 
-    // El nombre del invitado entra en el mensaje. Va aparte de las
-    // animaciones: tiene que andar aunque el visitante pida menos movimiento.
+    /*
+       El modal de confirmación, conectado al sistema de invitados. Va
+       aparte de las animaciones: tiene que andar aunque el visitante pida
+       menos movimiento.
+
+       Qué muestra depende de lo que la boda tenga prendido en el panel:
+         · cantidad   ("Elegir cuántos vienen") → los círculos 1..N
+         · asistentes ("Quiénes asisten")       → una casilla por persona
+         · acompanantes                         → una casilla menos: el
+                                                  titular ya cuenta
+       Se comparan con === true: si la clave no está, quedan apagadas.
+    */
     document.addEventListener("DOMContentLoaded", () => {
-        const input = document.getElementById(
-            "confirmar-nombre",
-        ) as HTMLInputElement | null;
-        const botones = Array.from(
-            document.querySelectorAll<HTMLAnchorElement>(
-                "#despedida .boton[data-confirmar]",
-            ),
+        const abrir = document.getElementById("abrir-confirmar");
+        const dialogo = document.getElementById(
+            "modal-confirmar",
+        ) as HTMLDialogElement | null;
+        if (!abrir || !dialogo) return;
+
+        const botones = abrir.closest<HTMLElement>(".botones");
+        const cajaCantidades =
+            dialogo.querySelector<HTMLElement>(".m-cantidades")!;
+        const pregunta = dialogo.querySelector<HTMLElement>(".m-pregunta");
+        const cajaNombres = dialogo.querySelector<HTMLElement>(".m-nombres")!;
+        const confirmar =
+            dialogo.querySelector<HTMLButtonElement>(".m-confirmar")!;
+        const noAsiste = dialogo.querySelector<HTMLButtonElement>(".m-no")!;
+        const pasos = Array.from(
+            dialogo.querySelectorAll<HTMLElement>(".m-paso"),
         );
-        if (!input || botones.length === 0) return;
 
-        const casilla = input.closest(".t-nombre");
+        // Los moldes que dibujó el servidor: se clonan para que los círculos
+        // y casillas nuevos conserven sus estilos
+        const moldeCant = cajaCantidades.querySelector<HTMLButtonElement>(
+            ".m-cant",
+        )!;
+        const moldeInput =
+            cajaNombres.querySelector<HTMLInputElement>(".m-input")!;
+        const placeholderBase = cajaNombres.dataset.placeholder || "";
 
-        input.addEventListener("input", () => {
-            botones.forEach((boton) => {
-                const datos: DatosConfirmar = JSON.parse(
-                    boton.dataset.confirmar!,
-                );
-                boton.href = enlaceConfirmar(datos, input.value);
+        // Los textos originales de los pasos finales, para volver a ellos
+        const textoFinal = (paso: string) =>
+            dialogo.querySelector<HTMLElement>(
+                `[data-paso="${paso}"] .m-final-texto`,
+            );
+        const graciasOriginal = textoFinal("gracias")?.textContent ?? "";
+        const noOriginal = textoFinal("no")?.textContent ?? "";
+        const textoConfirmar = confirmar.textContent ?? "";
+        const textoNoAsiste = noAsiste.textContent ?? "";
+
+        let pases = 0;
+        let elegidos = 0;
+        let eligeCantidad = false;
+        let casillasPorPersona: "todos" | "acompanantes" | "ninguno" =
+            "ninguno";
+
+        const cantidades = () =>
+            Array.from(
+                cajaCantidades.querySelectorAll<HTMLButtonElement>(".m-cant"),
+            );
+        const inputs = () =>
+            Array.from(cajaNombres.querySelectorAll<HTMLInputElement>(".m-input"));
+
+        const mostrarPaso = (nombre: string) =>
+            pasos.forEach((p) => (p.hidden = p.dataset.paso !== nombre));
+
+        // Cuántas casillas de nombre se ven para `n` personas
+        const casillas = (n: number) =>
+            casillasPorPersona === "todos"
+                ? n
+                : casillasPorPersona === "acompanantes"
+                  ? Math.max(n - 1, 0)
+                  : 0;
+
+        const elegir = (n: number) => {
+            elegidos = n;
+            cantidades().forEach((b) =>
+                b.setAttribute(
+                    "aria-checked",
+                    String(Number(b.dataset.cantidad) === n),
+                ),
+            );
+            const visibles = casillas(n);
+            cajaNombres.hidden = visibles === 0;
+            inputs().forEach((input, i) => {
+                input.hidden = i >= visibles;
+                input.classList.remove("falta");
             });
-            if (input.value.trim()) casilla?.classList.remove("falta");
+            confirmar.disabled = n < 1;
+        };
+
+        // Un círculo y una casilla por pase. Lo ya escrito no se pierde.
+        function armarCantidades(total: number) {
+            if (cantidades().length !== total) {
+                cajaCantidades.replaceChildren(
+                    ...Array.from({ length: total }, (_, i) => {
+                        const b = moldeCant.cloneNode(true) as HTMLButtonElement;
+                        b.dataset.cantidad = String(i + 1);
+                        b.textContent = String(i + 1);
+                        b.setAttribute("aria-checked", "false");
+                        return b;
+                    }),
+                );
+            }
+            const escritos = inputs().map((i) => i.value);
+            if (escritos.length !== total) {
+                cajaNombres.querySelectorAll(".m-input").forEach((i) => i.remove());
+                for (let i = 0; i < total; i++) {
+                    const input = moldeInput.cloneNode(true) as HTMLInputElement;
+                    const texto = `${placeholderBase} ${i + 1}`;
+                    input.placeholder = texto;
+                    input.setAttribute("aria-label", texto);
+                    input.value = escritos[i] ?? "";
+                    input.classList.remove("falta");
+                    input.hidden = true;
+                    cajaNombres.append(input);
+                }
+            }
+        }
+
+        // Pone en el modal (y en la tarjeta bordó) lo que diga la base
+        function pintar(inv: Invitado | null) {
+            const f = (inv?.funciones ?? {}) as Record<string, unknown>;
+
+            // Sin invitado en el link, o sin la confirmación contratada, no
+            // hay a nombre de quién guardar: el botón no se muestra
+            const puedeConfirmar = Boolean(inv) && f.confirmacion === true;
+            if (botones) botones.style.display = puedeConfirmar ? "" : "none";
+            if (!inv) return;
+
+            const conPases = f.pases !== false;
+            const renglon = document.getElementById("despedida-pase");
+            const frase = conPases ? textoPaseParaPersonas(inv.pases) : null;
+            if (renglon) {
+                renglon.textContent = frase ?? "";
+                renglon.hidden = !frase;
+            }
+
+            const nombre = document.getElementById("modal-nombre");
+            if (nombre) nombre.textContent = inv.nombre;
+
+            pases = Math.max(inv.pases || 1, 1);
+            const num = document.getElementById("modal-pases");
+            const palabra = document.getElementById("modal-palabra-pases");
+            if (num) num.textContent = String(pases);
+            if (palabra) palabra.textContent = palabraPases(pases);
+            dialogo!
+                .querySelector<HTMLElement>(".m-reservados")
+                ?.style.setProperty("display", conPases ? "" : "none");
+
+            eligeCantidad = f.cantidad === true;
+            casillasPorPersona =
+                f.asistentes === true
+                    ? "todos"
+                    : f.acompanantes === true
+                      ? "acompanantes"
+                      : "ninguno";
+
+            armarCantidades(pases);
+            cajaCantidades.style.display = eligeCantidad ? "" : "none";
+            if (pregunta) pregunta.style.display = eligeCantidad ? "" : "none";
+
+            if (!eligeCantidad) {
+                // Sin selector, confirma todos sus pases
+                elegir(pases);
+            } else if (pases === 1) {
+                elegir(1);
+            } else {
+                // Si los novios bajaron los pases, lo elegido se recorta
+                elegir(Math.min(elegidos, pases));
+            }
+        }
+
+        datosInvitado().then(pintar);
+        alCambiarInvitado((inv, estado) => {
+            // Si lo borran con el modal abierto, se cierra: la pantalla de
+            // "Invitación no disponible" no puede taparlo
+            if (estado === "no-existe" && dialogo.open) dialogo.close();
+            pintar(inv);
         });
 
-        // Sin nombre no sale: se marca la casilla y se lo pide
-        botones.forEach((boton) => {
-            boton.addEventListener("click", (e) => {
-                if (input.value.trim()) return;
-                e.preventDefault();
-                casilla?.classList.add("falta");
-                input.focus();
+        abrir.addEventListener("click", async () => {
+            const inv = await datosInvitado();
+            if (!inv) return;
+
+            // Si ya había respondido, se le muestra su respuesta en vez del
+            // formulario: no confirma dos veces sin querer
+            const gracias = textoFinal("gracias");
+            const no = textoFinal("no");
+            if (gracias) gracias.textContent = graciasOriginal;
+            if (no) no.textContent = noOriginal;
+
+            if (inv.confirmado === true) {
+                if (gracias)
+                    gracias.textContent = textoYaConfirmado(
+                        inv.asisten && inv.asisten > 0 ? inv.asisten : pases,
+                    );
+                mostrarPaso("gracias");
+            } else if (inv.confirmado === false) {
+                if (no) no.textContent = dialogo.dataset.yaNoAsiste || noOriginal;
+                mostrarPaso("no");
+            } else {
+                mostrarPaso("elegir");
+            }
+
+            dialogo.showModal();
+            // Sin esto, la invitación de atrás se desplaza con el dedo
+            document.documentElement.style.overflow = "hidden";
+        });
+
+        dialogo.addEventListener("close", () => {
+            document.documentElement.style.overflow = "";
+        });
+
+        dialogo
+            .querySelector(".m-cerrar")
+            ?.addEventListener("click", () => dialogo.close());
+
+        // Tocar afuera de la caja también cierra
+        dialogo.addEventListener("click", (e) => {
+            if (e.target === dialogo) dialogo.close();
+        });
+
+        // Delegado: los círculos se rearman cuando cambian los pases
+        cajaCantidades.addEventListener("click", (e) => {
+            const b = (e.target as HTMLElement).closest<HTMLButtonElement>(
+                ".m-cant",
+            );
+            if (b) elegir(Number(b.dataset.cantidad));
+        });
+
+        cajaNombres.addEventListener("input", (e) => {
+            const input = e.target as HTMLInputElement;
+            if (input.classList.contains("m-input") && input.value.trim())
+                input.classList.remove("falta");
+        });
+
+        // Si la base no contesta, el botón lo dice y se puede reintentar
+        function avisarError(boton: HTMLButtonElement, original: string) {
+            boton.textContent = "No se pudo enviar, intenta de nuevo";
+            setTimeout(() => {
+                boton.textContent = original;
+                boton.disabled = false;
+            }, 3000);
+        }
+
+        confirmar.addEventListener("click", async () => {
+            const visibles = inputs().slice(0, casillas(elegidos));
+            const vacios = visibles.filter((input) => !input.value.trim());
+            if (vacios.length > 0) {
+                vacios.forEach((input) => input.classList.add("falta"));
+                vacios[0].focus();
                 gsap.fromTo(
-                    casilla,
+                    vacios,
                     { x: -6 },
                     { x: 0, duration: 0.5, ease: "elastic.out(1, 0.3)" },
                 );
-            });
+                return;
+            }
+
+            confirmar.disabled = true;
+            confirmar.textContent = "Enviando...";
+            const fila = await confirmarAsistencia(
+                true,
+                elegidos,
+                visibles.map((input) => input.value.trim()),
+            );
+            if (!fila) return avisarError(confirmar, textoConfirmar);
+
+            confirmar.textContent = textoConfirmar;
+            confirmar.disabled = false;
+            mostrarPaso("gracias");
+        });
+
+        noAsiste.addEventListener("click", async () => {
+            noAsiste.disabled = true;
+            noAsiste.textContent = "Enviando...";
+            const fila = await confirmarAsistencia(false);
+            if (!fila) return avisarError(noAsiste, textoNoAsiste);
+
+            noAsiste.textContent = textoNoAsiste;
+            noAsiste.disabled = false;
+            mostrarPaso("no");
         });
     });
 

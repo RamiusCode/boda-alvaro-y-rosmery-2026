@@ -6,8 +6,10 @@
 // lugar. Fondo crema con doble filete dorado y la flor colgante (la misma
 // de Versiculo y NombresPadres) pisando dos esquinas.
 //
-// Por ahora solo el diseño: el nombre y los pases llegan por props. Más
-// adelante se enlaza con el sistema de invitados.
+// Conectada al sistema de invitados: con un link ?i=codigo, el nombre y
+// los pases llegan de la base (y se actualizan solos si los novios los
+// corrigen). Sin invitado la tarjeta no se muestra, salvo en las rutas
+// viejas /pase1, /pase2... que mandan el número por props.
 import { textoPases } from "../scripts/textoPase";
 
 export interface Props {
@@ -18,22 +20,29 @@ export interface Props {
 // ── DATOS EDITABLES ───────────────────────────────────────────
 const intro = "Con mucho cariño para";
 const reservado = "Hemos reservado";
-// Mientras no esté enlazado al sistema
-const nombrePorDefecto = "Nombre del Invitado";
 // ──────────────────────────────────────────────────────────────
 
-const { nombre = nombrePorDefecto, pases = 0 } = Astro.props;
-// Hasta 10 muñequitos: con más no entran en el renglón
-const muñecos = Math.min(pases, 10);
+const { nombre = "", pases = 0 } = Astro.props;
+// Hasta 10 muñequitos: con más no entran en el renglón. Siempre se dibuja
+// al menos uno: el script lo usa de molde para dibujar los que lleguen.
+const MAX_MUNECOS = 10;
+const muñecos = Math.max(Math.min(pases, MAX_MUNECOS), 1);
 ---
 
-<section id="pase" class="seccion">
+<section
+    id="pase"
+    class="seccion"
+    style={pases > 0 ? undefined : "display: none"}
+    data-max-munecos={MAX_MUNECOS}
+>
     <div id="tarjeta-pase" class="tarjeta">
         <!-- Doble filete dorado -->
         <span class="marco" aria-hidden="true"></span>
 
-        <p class="intro">{intro}</p>
-        <p class="nombre font-great-vibes">{nombre}</p>
+        <p class="intro" id="intro-invitado" hidden={!nombre}>{intro}</p>
+        <p class="nombre font-great-vibes" id="nombre-invitado" hidden={!nombre}>
+            {nombre}
+        </p>
 
         <div class="separador" aria-hidden="true">
             <span class="sep-linea"></span>
@@ -44,12 +53,12 @@ const muñecos = Math.min(pases, 10);
         <p class="reservado">{reservado}</p>
 
         <div class="circulo">
-            <span class="numero">{pases}</span>
+            <span class="numero" id="numero-pases">{pases}</span>
         </div>
 
-        <p class="honor">{textoPases(pases)}</p>
+        <p class="honor" id="palabra-pases">{textoPases(pases)}</p>
 
-        <ul class="personas" aria-hidden="true">
+        <ul class="personas" id="iconos-pase" aria-hidden="true">
             {
                 Array.from({ length: muñecos }, () => (
                     <li class="persona">
@@ -256,8 +265,73 @@ const muñecos = Math.min(pases, 10);
 <script>
     import { gsap } from "gsap";
     import { ScrollTrigger } from "gsap/ScrollTrigger";
+    import {
+        datosInvitado,
+        alCambiarInvitado,
+        type Invitado,
+    } from "../lib/invitado";
+    import { textoPases } from "../scripts/textoPase";
 
     gsap.registerPlugin(ScrollTrigger);
+
+    // ── Datos del sistema de invitados ────────────────────────
+    // Va aparte de las animaciones: tiene que andar aunque el visitante
+    // pida menos movimiento.
+    function pintarPase(nombre: string | null, pases: number | null) {
+        if (nombre) {
+            const el = document.getElementById("nombre-invitado");
+            if (el) {
+                el.textContent = nombre;
+                el.hidden = false;
+            }
+            const intro = document.getElementById("intro-invitado");
+            if (intro) intro.hidden = false;
+        }
+        if (pases !== null && Number.isInteger(pases) && pases > 0) {
+            const num = document.getElementById("numero-pases");
+            const palabra = document.getElementById("palabra-pases");
+            if (num) num.textContent = String(pases);
+            if (palabra) palabra.textContent = textoPases(pases);
+
+            // Un muñequito por pase, clonando el que ya está dibujado para
+            // que conserve sus estilos
+            const iconos = document.getElementById("iconos-pase");
+            const molde = iconos?.querySelector(".persona");
+            const seccion = document.getElementById("pase");
+            const tope = Number(seccion?.dataset.maxMunecos) || 10;
+            const cuantos = Math.min(pases, tope);
+            if (iconos && molde && iconos.children.length !== cuantos) {
+                const nuevos = Array.from({ length: cuantos }, () =>
+                    molde.cloneNode(true),
+                );
+                iconos.replaceChildren(...nuevos);
+            }
+        }
+    }
+
+    function mostrarInvitado(inv: Invitado | null) {
+        if (!inv) return;
+        const seccion = document.getElementById("pase");
+        const funciones = (inv.funciones ?? {}) as Record<string, unknown>;
+
+        // Con la función "pases" apagada solo se muestra el nombre
+        const conPases = funciones.pases !== false;
+        for (const sel of [".reservado", ".circulo", ".honor", ".personas"]) {
+            const el = seccion?.querySelector<HTMLElement>(sel);
+            if (el) el.style.display = conPases ? "" : "none";
+        }
+        pintarPase(inv.nombre, conPases ? inv.pases : null);
+
+        // En el link sin pase la tarjeta arranca escondida: al aparecer,
+        // las animaciones de más abajo tienen que recalcular su lugar
+        if (seccion && seccion.style.display === "none") {
+            seccion.style.display = "";
+            ScrollTrigger.refresh();
+        }
+    }
+
+    datosInvitado().then(mostrarInvitado);
+    alCambiarInvitado((inv) => mostrarInvitado(inv));
 
     document.addEventListener("DOMContentLoaded", () => {
         const tarjeta = document.getElementById("tarjeta-pase");

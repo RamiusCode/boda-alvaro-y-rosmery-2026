@@ -42,10 +42,10 @@ const { pases = 0 } = Astro.props;
 <div id="contenido-principal">
     <NombresFlores />
     <Dedicatoria />
-    {/* PENDIENTE: la tarjeta del pase se ve siempre mientras se arma el diseño;
-        en el link sin pase (/) muestra 2 de muestra. Al enlazar con el sistema
-        volver a mostrarla solo con pases > 0. */}
-    <Pase pases={pases > 0 ? pases : 2} />
+    {/* La tarjeta del pase se dibuja siempre, pero en el link sin pase (/)
+        arranca escondida: aparece cuando el link trae ?i=codigo y el sistema
+        de invitados devuelve el nombre y los pases. */}
+    <Pase pases={pases} />
     <Versiculo />
     <NombresPadres />
     {/* Padrinos apagados: los novios todavía no pasaron los nombres. */}

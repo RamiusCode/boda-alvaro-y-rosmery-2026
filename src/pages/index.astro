@@ -6,8 +6,11 @@
 // Las que llevan pase viven todas en pase[cantidad].astro: /pase1, /pase2...
 import Layout from "../layouts/Layout.astro";
 import Invitacion from "../components/Invitacion.astro";
+// Tapa la invitación si los novios borraron al invitado del link ?i=
+import LinkNoDisponible from "../components/LinkNoDisponible.astro";
 ---
 
 <Layout title="Alvaro & Rosmery | 23 de Diciembre 2026">
+    <LinkNoDisponible />
     <Invitacion />
 </Layout>
